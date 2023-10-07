@@ -1,0 +1,27 @@
+{% include 'layout.html' %}
+<div class="container mt-5">
+    <h3>
+        Here is your job demands:
+    </h3>
+    <form action="/" method="POST">
+        <div>
+            <textarea class="form-control" placeholder="type your input here" name="userInput" rows="3"></textarea>
+            <button class="btn btn-primary mt-1" type="submit">Send</button>
+        </div>
+    </form>
+
+    <div>
+        <div class="card text-center mt-3">
+            <div class="card-header">
+                Career demands
+            </div>
+            <div class="card-body">
+                {% for demand in demand_list %}
+                <div>
+                    {{demand}}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
