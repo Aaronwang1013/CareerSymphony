@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from bs4 import BeautifulSoup
 import requests
 import random
+from selenium import webdriver
 
 user_agent_list = [ "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; AcooBrowser; .NET CLR 1.1.4322; .NET CLR 2.0.50727)",
                                                 "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.0; Acoo Browser; SLCC1; .NET CLR 2.0.50727; Media Center PC 5.0; .NET CLR 3.0.04506)",
@@ -24,9 +25,9 @@ user_agent_list = [ "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; Aco
                                                 "Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; WOW64; Trident/5.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; .NET4.0C; .NET4.0E; LBBROWSER)",
                                                 ]
 class Query(ABC):
-    def __init__(self , Jobtitle , page):
+    def __init__(self , Jobtitle):
         self.Jobtitle = Jobtitle
-        self.page = page
+        # self.page = page
     @abstractmethod
     def scrape(self):
         pass
@@ -34,24 +35,27 @@ class Query(ABC):
 ## 執行搜尋-> 抓資料下來後寸入資料庫並進行視覺化 -> 下次若搜尋相同關鍵字，直接從資料庫找
 class JobQuery(Query):
     def scrape(self):
+        """
+        take a string (job title) and 
+        Returns:
+            _type_: _description_
+        """
         headers = {'user-agent': random.choice(user_agent_list)}
-        if self.Jobtitle:
-            response = requests.get(
-                f"https://www.104.com.tw/jobs/search/?keyword={self.Jobtitle}&page={self.page}" , headers=headers
-            )
-   
-            Data = BeautifulSoup(response.text , 'lxml')
-
-            jobs_info = Data.find_all('article' , class_ = 'js-job-item')
-
+        total_page = self.get_page(f"https://www.104.com.tw/jobs/search/?keyword={self.Jobtitle}")
         company_list = []
         href_list = []
-        for job in jobs_info:
-            # print(job.find('a',class_="js-job-link").text)
-            company = job.get('data-cust-name')
-            href = job.find('a').get('href').replace("//" ,"")
-            company_list.append(company)
-            href_list.append(href)
+        for i in range(1, total_page):
+            response = requests.get(
+                f"https://www.104.com.tw/jobs/search/?keyword={self.Jobtitle}&page={i}" , headers=headers
+                )
+            Data = BeautifulSoup(response.text , 'lxml')
+            jobs_info = Data.find_all('article' , class_ = 'js-job-item')
+            for job in jobs_info:
+                # print(job.find('a',class_="js-job-link").text)
+                company = job.get('data-cust-name')
+                href = job.find('a').get('href').replace("//" ,"")
+                company_list.append(company)
+                href_list.append(href)
             # company_list = company_list[2:]
             # href_list = href_list[2:]
 
@@ -61,10 +65,20 @@ class JobQuery(Query):
         # print(job_href)
         # job_href = job_href
         return job_href
-        
+    
+    def get_page(self , url):
+        driver = webdriver.Chrome()
+        driver.get(url)
+        soup = BeautifulSoup(driver.page_source, 'html.parser')
+        select_element = soup.find('select', class_='page-select')
+        option_elements = select_element.find_all('option')
+        last_option_text = option_elements[-1].text
+        total_page = last_option_text.split()[-2]
+        driver.quit()
+        return int(total_page)
     def job_detail(self , href):
         ##need to use selenuim to get the data
-        ## pending due to the hrome version problem
+        ## pending due to the chrome version problem
         all_tool = []
         for company , url in href.items():
             # print(url)
@@ -84,7 +98,7 @@ class JobQuery(Query):
     
 
 if __name__ == "__main__":
-    job = JobQuery("Backend" ,"1")
+    job = JobQuery("Backend")
     job_url = job.scrape()
     toolList = job.job_detail(job_url)
     print(toolList)
